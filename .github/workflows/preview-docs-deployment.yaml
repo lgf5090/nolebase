@@ -1,11 +1,11 @@
 name: 部署预览到 Netlify
 
 on:
-  workflow_run:
-    workflows:
-      - 构建预览
-    types:
-      - completed
+  # workflow_run:
+  #   workflows:
+  #     - 构建预览
+  #   types:
+  #     - completed
   workflow_dispatch:
 
 env:

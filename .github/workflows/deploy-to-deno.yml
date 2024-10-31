@@ -1,46 +1,41 @@
-name: 构建预览
+name: 构建并部署到 dash.deno.dev
 
 on:
-  # pull_request:
-  #   branches:
-  #     - main
+  push:
+    branches: main
+  pull_request:
+    branches: main
   workflow_dispatch:
 
 env:
   STORE_PATH: ''
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: 构建
-
+  deploy:
+    name: 构建和部署
     runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      # This is quite weird.
-      # Eventhough this is the *intended* solution introduces in official blog post here
-      # https://securitylab.github.com/research/github-actions-preventing-pwn-requests/.
-      # But still, as https://github.com/orgs/community/discussions/25220#discussioncomment-7856118 stated,
-      # this is vulnerable since there is no source of truth about which PR in the triggered workflow.
-      - name: 保留 PR 信息
-        run: |
-          echo "${{ github.event.number }}" > pr_num
-
-      - name: 上传 PR 信息
-        uses: actions/upload-artifact@v2
-        with:
-          name: pr-num
-          path: ./pr_num
-
       - name: 签出代码
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: 安装 Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: 安装 Node.js 22.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22.x
 
@@ -72,10 +67,12 @@ jobs:
 
       - name: 构建
         run: |
+          export NODE_OPTIONS="--max-old-space-size=16384"
           pnpm docs:build
 
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4
+      - name: 上传到 Deno Deploy
+        uses: denoland/deployctl@v1
         with:
-          name: docs-build
-          path: .vitepress/dist
+          project: "nolebase"
+          entrypoint: "https://deno.land/std@0.217.0/http/file_server.ts"
+          root: ".vitepress/dist"
