@@ -1,9 +1,10 @@
-name: Deploy
+name: 构建并部署到 dash.deno.dev
 on:
   push:
     branches: main
   pull_request:
     branches: main
+  workflow_dispatch:
 
 jobs:
   deploy:
