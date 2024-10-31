@@ -1,4 +1,5 @@
 name: 构建并部署到 dash.deno.dev
+
 on:
   push:
     branches: main
@@ -6,59 +7,72 @@ on:
     branches: main
   workflow_dispatch:
 
+env:
+  STORE_PATH: ''
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
-    name: Deploy
+    name: 构建和部署
     runs-on: ubuntu-latest
 
     permissions:
-      id-token: write # Needed for auth with Deno Deploy
-      contents: read # Needed to clone the repository
+      id-token: write
+      contents: read
 
     steps:
-      - name: Clone repository
+      - name: 签出代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install Deno
+      - name: 安装 Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - name: Install Node.js
+      - name: 安装 Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 22.x
 
-      - name: Install pnpm
+      - name: 安装 pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
           run_install: false
 
-      - name: Get pnpm store directory
+      - name: 获取 pnpm store 目录
         shell: bash
         run: |
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
+      - name: 配置 pnpm 缓存
+        uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install step
-        run: "pnpm install"
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
 
-      - name: Build step
-        run: "pnpm run build"
+      - name: 安装思源黑体
+        run: |
+          mkdir -p ~/.local/share/fonts
+          cp public/source-han-sans.ttf ~/.local/share/fonts/source-han-sans.ttf
 
-      - name: Upload to Deno Deploy
+      - name: 构建
+        run: |
+          export NODE_OPTIONS="--max-old-space-size=16384"
+          pnpm docs:build
+
+      - name: 上传到 Deno Deploy
         uses: denoland/deployctl@v1
         with:
           project: "nolebase"
           entrypoint: "https://deno.land/std@0.217.0/http/file_server.ts"
           root: ".vitepress/dist"
-
-
